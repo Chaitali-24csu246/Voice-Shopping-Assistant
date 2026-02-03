@@ -1,0 +1,15 @@
+# Voice Shopping Assistant Requirements
+
+# Speech Recognition
+SpeechRecognition==3.10.1
+PyAudio==0.2.14
+
+# Text-to-Speech
+pyttsx3==2.90
+
+# Web Scraping
+beautifulsoup4==4.12.3
+requests==2.31.0
+
+# Additional utilities
+urllib3==2.2.0
