@@ -7,11 +7,16 @@ and uses ScaleDown API to optimize prompts for efficient LLM responses.
 import os
 import json
 import requests
-import speech_recognition as sr
-import pyttsx3
 from bs4 import BeautifulSoup
 from urllib.parse import quote_plus
 import time
+import sounddevice as sd
+import numpy as np
+from vosk import Model, KaldiRecognizer
+import queue
+import sys
+import subprocess
+import platform
 
 # ============================================================================
 # CONFIGURATION
@@ -20,13 +25,12 @@ import time
 SCALEDOWN_API_KEY = os.getenv("SCALEDOWN_API_KEY", "")
 SCALEDOWN_API_URL = "https://api.scaledown.xyz/compress/raw/"
 
-# Initialize text-to-speech engine
-tts_engine = pyttsx3.init()
-tts_engine.setProperty('rate', 175)  # Speaking speed
-tts_engine.setProperty('volume', 0.9)  # Volume (0.0 to 1.0)
+# Detect platform for text-to-speech
+IS_MAC = platform.system() == "Darwin"
 
-# Initialize speech recognizer
-recognizer = sr.Recognizer()
+# Initialize Vosk model (will be loaded in main)
+model = None
+audio_queue = queue.Queue()
 
 
 # ============================================================================
@@ -34,37 +38,87 @@ recognizer = sr.Recognizer()
 # ============================================================================
 
 def speak(text):
-    """Convert text to speech"""
+    """Convert text to speech using native macOS 'say' command"""
     print(f"🔊 Assistant: {text}")
-    tts_engine.say(text)
-    tts_engine.runAndWait()
+    
+    if IS_MAC:
+        # Use macOS native text-to-speech (much more reliable)
+        subprocess.run(['say', text], check=False)
+    else:
+        # Fallback for other platforms
+        print("   [Text-to-speech not available on this platform]")
+
+
+def audio_callback(indata, frames, time_info, status):
+    """Callback for audio stream"""
+    if status:
+        print(status, file=sys.stderr)
+    audio_queue.put(bytes(indata))
 
 
 def listen():
-    """Listen for user voice input and convert to text"""
-    with sr.Microphone() as source:
-        print("🎤 Listening...")
-        recognizer.adjust_for_ambient_noise(source, duration=0.5)
+    """Listen for user voice input and convert to text using Vosk"""
+    global model
+    
+    if model is None:
+        speak("Speech recognition model not loaded. Please check setup.")
+        return None
+    
+    print("🎤 Listening...")
+    
+    try:
+        # Create recognizer
+        recognizer = KaldiRecognizer(model, 16000)
+        recognizer.SetWords(True)
         
-        try:
-            audio = recognizer.listen(source, timeout=5, phrase_time_limit=10)
-            print("🔄 Processing speech...")
-            text = recognizer.recognize_google(audio)
-            print(f"👤 You said: {text}")
-            return text.lower()
+        # Clear the queue
+        while not audio_queue.empty():
+            audio_queue.get()
         
-        except sr.WaitTimeoutError:
-            speak("I didn't hear anything. Please try again.")
-            return None
-        
-        except sr.UnknownValueError:
-            speak("I couldn't understand that. Could you please repeat?")
-            return None
-        
-        except sr.RequestError as e:
-            speak("Sorry, there was an error with the speech recognition service.")
-            print(f"Error: {e}")
-            return None
+        # Start recording
+        with sd.RawInputStream(samplerate=16000, blocksize=8000, dtype='int16',
+                               channels=1, callback=audio_callback):
+            
+            silence_threshold = 30  # frames of silence
+            silence_count = 0
+            has_speech = False
+            
+            while True:
+                data = audio_queue.get()
+                
+                if recognizer.AcceptWaveform(data):
+                    result = json.loads(recognizer.Result())
+                    text = result.get('text', '').strip()
+                    
+                    if text:
+                        has_speech = True
+                        print(f"👤 You said: {text}")
+                        return text.lower()
+                else:
+                    # Check for partial results to detect speech
+                    partial = json.loads(recognizer.PartialResult())
+                    if partial.get('partial', ''):
+                        has_speech = True
+                        silence_count = 0
+                    elif has_speech:
+                        silence_count += 1
+                        
+                        # Stop after silence
+                        if silence_count > silence_threshold:
+                            result = json.loads(recognizer.FinalResult())
+                            text = result.get('text', '').strip()
+                            
+                            if text:
+                                print(f"👤 You said: {text}")
+                                return text.lower()
+                            else:
+                                speak("I didn't catch that. Please try again.")
+                                return None
+    
+    except Exception as e:
+        print(f"Error during listening: {e}")
+        speak("Sorry, there was an error with the microphone.")
+        return None
 
 
 # ============================================================================
@@ -257,6 +311,24 @@ if __name__ == "__main__":
     print("\n2. Make sure your microphone is connected and working")
     print("\n3. Speak clearly when prompted")
     print("\n" + "=" * 70 + "\n")
+    
+    # Load Vosk model
+    print("Loading speech recognition model...")
+    model_path = "vosk-model-small-en-us-0.15"
+    
+    if not os.path.exists(model_path):
+        print(f"\n❌ ERROR: Speech model not found at '{model_path}'")
+        print("\nPlease download the model:")
+        print("1. Download from: https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip")
+        print("2. Extract the zip file")
+        print("3. Place the 'vosk-model-small-en-us-0.15' folder in the same directory as this script")
+        print("\nOr run this command:")
+        print("  curl -LO https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip")
+        print("  unzip vosk-model-small-en-us-0.15.zip")
+        sys.exit(1)
+    
+    model = Model(model_path)
+    print("✅ Speech model loaded successfully!\n")
     
     if not SCALEDOWN_API_KEY:
         print("⚠️  WARNING: SCALEDOWN_API_KEY not set!")

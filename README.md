@@ -9,6 +9,8 @@ A voice-controlled shopping assistant that searches the web for products and use
 - 🌐 **Web Search**: Searches for products online automatically
 - ⚡ **ScaleDown Integration**: Optimizes prompts to save tokens and costs
 - 🚀 **Simple & Lightweight**: Easy to set up and run
+- 🔒 **Offline Speech Recognition**: Uses Vosk (no internet needed for speech-to-text)
+- ✅ **Python 3.13 Compatible**: Works with the latest Python version
 
 ## Prerequisites
 
@@ -22,26 +24,39 @@ A voice-controlled shopping assistant that searches the web for products and use
 ### Step 1: Install Python Dependencies
 
 ```bash
-pip install -r requirements.txt
+pip3 install -r requirements.txt
 ```
 
-**Note for macOS users**: PyAudio might need additional steps:
+**Works with Python 3.13!** This version uses Vosk for offline speech recognition (no PyAudio issues).
+
+### Step 2: Download Speech Recognition Model
+
+Download the Vosk English model (~40MB):
+
 ```bash
-brew install portaudio
-pip install pyaudio
+curl -LO https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip
+unzip vosk-model-small-en-us-0.15.zip
 ```
 
-**Note for Linux users**: You might need to install additional packages:
-```bash
-sudo apt-get install python3-pyaudio portaudio19-dev
-pip install pyaudio
+**Or download manually:**
+1. Visit: https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip
+2. Download and extract the zip file
+3. Place the `vosk-model-small-en-us-0.15` folder in the same directory as `voice_shopping_assistant.py`
+
+The folder structure should look like:
+```
+your-folder/
+├── voice_shopping_assistant.py
+├── requirements.txt
+├── README.md
+└── vosk-model-small-en-us-0.15/
+    ├── am/
+    ├── conf/
+    ├── graph/
+    └── ...
 ```
 
-**Note for Windows users**: PyAudio should install directly, but if you have issues:
-- Download the appropriate `.whl` file from [here](https://www.lfd.uci.edu/~gohlke/pythonlibs/#pyaudio)
-- Install with: `pip install PyAudio‑0.2.11‑cp39‑cp39‑win_amd64.whl` (adjust for your Python version)
-
-### Step 2: Set Up ScaleDown API Key
+### Step 3: Set Up ScaleDown API Key
 
 Set your ScaleDown API key as an environment variable:
 
@@ -133,19 +148,27 @@ Savings: 60% (810 tokens saved)
 
 ## Troubleshooting
 
+### Model Not Found Error
+
+If you see "Speech model not found":
+- Make sure you downloaded and extracted the Vosk model
+- Check that the folder name is exactly `vosk-model-small-en-us-0.15`
+- Verify it's in the same directory as `voice_shopping_assistant.py`
+
 ### Microphone Issues
 
 If the assistant can't hear you:
 - Check microphone permissions in system settings
 - Make sure your microphone is set as the default input device
 - Try speaking louder and closer to the microphone
+- On Mac: Go to System Preferences > Security & Privacy > Microphone and allow Terminal
 
 ### Speech Recognition Errors
 
 If recognition is inaccurate:
 - Speak more clearly and at a moderate pace
 - Reduce background noise
-- Check your internet connection (Google Speech Recognition requires it)
+- Try the larger Vosk model for better accuracy: `vosk-model-en-us-0.22` (1.8GB)
 
 ### ScaleDown API Errors
 
@@ -156,9 +179,9 @@ If you see ScaleDown errors:
 
 ### Installation Issues
 
-**PyAudio won't install:**
-- See platform-specific notes in Installation section above
-- Try using conda: `conda install pyaudio`
+**Vosk won't install:**
+- Make sure you have Python 3.8+ installed
+- Try: `pip3 install --upgrade pip` then reinstall
 
 **pyttsx3 speech issues:**
 - On Linux, install espeak: `sudo apt-get install espeak`
@@ -170,9 +193,6 @@ If you see ScaleDown errors:
 You can modify these settings in `voice_shopping_assistant.py`:
 
 ```python
-# Speech recognition timeout (seconds)
-recognizer.listen(source, timeout=5, phrase_time_limit=10)
-
 # Text-to-speech speed (words per minute)
 tts_engine.setProperty('rate', 175)  # Default: 175
 
@@ -181,7 +201,18 @@ products = search_products(user_input, max_results=5)  # Default: 5
 
 # ScaleDown compression model
 compress_with_scaledown(context, prompt, model="gpt-4o")  # Options: gpt-4o, gpt-4o-mini, gemini-2.5-flash
+
+# Vosk model path (if using a different model)
+model_path = "vosk-model-small-en-us-0.15"
 ```
+
+### Using a Better Speech Model
+
+For improved accuracy, download a larger model:
+- **Standard** (1.8GB): https://alphacephei.com/vosk/models/vosk-model-en-us-0.22.zip
+- **Small** (40MB, current): https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip
+
+Extract and update the `model_path` variable in the code.
 
 ## Advanced Features
 
@@ -256,10 +287,11 @@ POST https://api.scaledown.xyz/compress/raw/
 
 ## Limitations
 
-- Requires internet connection for both speech recognition and web search
+- Requires internet connection for web search (but NOT for speech recognition!)
 - Search results depend on DuckDuckGo availability
 - Voice recognition accuracy varies with accent and background noise
 - Product information may not include prices (depends on search results)
+- First run requires downloading ~40MB speech model
 
 ## Future Enhancements
 
@@ -283,7 +315,8 @@ For project-specific issues, check the troubleshooting section above.
 ## Credits
 
 Built with:
-- [SpeechRecognition](https://pypi.org/project/SpeechRecognition/) for voice input
+- [Vosk](https://alphacephei.com/vosk/) for offline speech recognition
+- [sounddevice](https://python-sounddevice.readthedocs.io/) for audio input
 - [pyttsx3](https://pypi.org/project/pyttsx3/) for text-to-speech
 - [BeautifulSoup](https://www.crummy.com/software/BeautifulSoup/) for web scraping
 - [ScaleDown](https://scaledown.ai) for prompt optimization

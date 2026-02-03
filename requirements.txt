@@ -1,11 +1,9 @@
-# Voice Shopping Assistant Requirements
+# Voice Shopping Assistant Requirements (Python 3.13 Compatible)
 
-# Speech Recognition
-SpeechRecognition==3.10.1
-PyAudio==0.2.14
-
-# Text-to-Speech
-pyttsx3==2.90
+# Speech Recognition (offline, Python 3.13 compatible)
+vosk==0.3.44
+sounddevice==0.4.6
+numpy==1.26.4
 
 # Web Scraping
 beautifulsoup4==4.12.3
