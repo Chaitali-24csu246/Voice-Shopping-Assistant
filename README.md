@@ -4,6 +4,7 @@
 # 🎙 Voice Shopping Assistant (Terminal)
 
 A simple voice-powered shopping search assistant that converts speech → text → Google Shopping results using SerpAPI.
+note(earlier features such as gemini optimization scaledown token reduction, and streamlmit were removed to focus on cleaner functionality, and cross platform availability of voice model)
 
 This version is intentionally minimal and stable:
 - 🎤 Offline speech recognition using Vosk
